@@ -54,16 +54,34 @@ el saldo de las cuentas después de cada transacción.
 CREATE OR REPLACE TRIGGER actualizar_saldo
 AFTER INSERT ON transacciones
 FOR EACH ROW
+DECLARE
+    PRAGMA AUTONOMOUS_TRANSACTION; -- Inicia una transacción autónoma
+    v_saldo NUMBER(10,2);
 BEGIN
     IF :NEW.tipo_transaccion = 'Deposito' THEN
+        -- Bloquear la fila de la cuenta para evitar actualización perdida
+        SELECT saldo + :NEW.monto INTO v_saldo
+        FROM cuentas
+        WHERE id_cuenta = :NEW.id_cuenta
+        FOR UPDATE; -- Con esto estamos bloqueando la fila
+
+        -- Actualizar el saldo
         UPDATE cuentas
-        SET saldo = saldo + :NEW.monto
+        SET saldo = v_saldo
         WHERE id_cuenta = :NEW.id_cuenta;
     ELSIF :NEW.tipo_transaccion = 'Retiro' THEN
+        -- Bloquear la fila de la cuenta para evitar actualización perdida
+        SELECT saldo - :NEW.monto INTO v_saldo
+        FROM cuentas
+        WHERE id_cuenta = :NEW.id_cuenta
+        FOR UPDATE; -- Con esto estamos bloqueando la fila
+
+        -- Actualizar el saldo
         UPDATE cuentas
-        SET saldo = saldo - :NEW.monto
+        SET saldo = v_saldo
         WHERE id_cuenta = :NEW.id_cuenta;
     END IF;
+    COMMIT; -- Confirma la transacción autónoma
 END;
 
 -- Procedimiento almacenado para realizar depósitos
@@ -99,5 +117,5 @@ END;
 
 SELECT * FROM cuentas;
 
-UPDATE cuentas SET saldo=100 WHERE id_cuenta=1;
-UPDATE cuentas SET saldo=100 WHERE id_cuenta=2;
+UPDATE cuentas SET saldo=1000 WHERE id_cuenta=1;
+UPDATE cuentas SET saldo=1000 WHERE id_cuenta=2;
